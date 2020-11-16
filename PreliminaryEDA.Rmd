@@ -1,0 +1,119 @@
+---
+title: "Final Project Preliminary EDA"
+author: "Jessie Liang"
+output: html_notebook
+---
+
+### Research Question
+Which Spotify playlist genres are the most popular in music charts based on Award winning Billboard artists?
+
+### Preparing the Data
+
+```{r}
+rm(list = ls())
+
+# load packages
+library(DataComputing)
+library(rvest)
+
+# load primary data source from csv
+spotify <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-21/spotify_songs.csv')
+
+# second data source
+page <- "https://en.wikipedia.org/wiki/Billboard_Music_Awards"
+tableList <- page %>%
+  read_html() %>%
+  html_nodes(css = "table") %>%
+  html_table(fill = TRUE)
+```
+
+### Clean up data
+```{r}
+# variable naming
+artist <- (tableList[[6]])
+artist <- artist %>%
+  rename(n = `#`,
+         year = Year,
+         tv = TV,
+         topArtist = `Top Artist[4]`,
+         topMale = `Top Male Artist`,
+         topFemale = `Top Female Artist`,
+         topNew = `Top New Artist`,
+         topGroup = `Top Duo/Group`,
+         hot100 = `Top Hot 100 Song`,
+         billboard200 = `Top Billboard 200 Album`,
+         multipleWins = `Multiple wins`,
+         host = `Host(s)`,
+         venue = Venue)
+
+# variable type
+artist <- artist %>%
+  mutate(n = as.numeric(n)) %>%
+  mutate(year = as.numeric(year))
+```
+
+### Become acquainted with the data sources
+#### Spotify metadata
+```{r}
+# display first 6 cases
+head(spotify)
+```
+1. Who - The data is created and maintained by Charlie Thompson, Josiah Parry, Donal Phipps, and Tom Wolff.
+```{r}
+nrow(spotify)
+ncol(spotify)
+```
+2. What - The general metadata  with around songs from Spotify's API consists of 32,833 observations and 23 variables. It includes information about song tracks, such as popularity, genre,danceability, etc. A case represents a song track in the Spotify system. 
+3. Where - The data comes from Spotify's web API and can be found on in tidytuesdayR from GitHub. 
+4. When - The dataset was created 3 years ago, but is updated to keep track of the recent songs.  
+5. Why - This allows users to pull data about song tracks and conduct analysis on their topics of choice. Users may also get information about their own Spotify data from the API by setting up a Dev account.
+6. Variables - Some variables I plan to use are `track_artist` and `playlist_genre`, and `playlist_subgenre`.
+```{r}
+spotify <- spotify %>%
+  select(track_artist, playlist_genre, playlist_subgenre)
+
+head(spotify)
+```
+
+
+#### Billboard Artist
+```{r}
+# display first 6 cases
+head(artist)
+```
+1. Who - The data is created and maintained by Wikipedia contributors.
+```{r}
+nrow(artist)
+ncol(artist)
+```
+2. What - The data consists of all artists that won an Billboard award, such of artist of the year, top male artist, or top female artist. The table has 28 observations and 14 variables. Each case represents a year and all the artists who won an award during that year. 
+3. Where - The data comes from the Wikipedia page, Billboard Music Awards. 
+4. When - The table contains data starting from the year 1990 to 2020 and is updated when new information about the Billboard Music Awards is available. It is unknown when the data was collected, but it is most likely within the past couple decades.
+5. Why - The data was collected to provide the public easy access to information about the Billboard Music Award winners since Wikipedia is a free encyclopedia. 
+6. Variables - Some variables that I plan to use are `year`, `topArtist`, `topMale`, and `topFemale`.
+```{r}
+# select year, topArtist, topMale, topFemale
+artist %>%
+  select(year, topArtist, topMale, topFemale)
+```
+
+### Explore research question
+```{r}
+# join spotify and artist table
+artistChart <- artist %>%
+  inner_join(spotify, by = c("topArtist" = "track_artist")) %>%
+  select(year, topArtist, playlist_genre, playlist_subgenre)
+```
+```{r}
+artistChart %>%
+  group_by(playlist_genre) %>%
+  summarise(count = n())
+```
+Base on top artists, the most popular Spotify playlist genre appears to be rap with r&b and pop following after. Further analysis can be done by looking at top male artists, top female artists, or top group artists to see if there are different genre results.
+
+```{r}
+artistChart %>%
+  group_by(year, playlist_genre) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = year, y = count)) + geom_point(aes(shape = playlist_genre)) + ggtitle("Genre popularity by year")
+```
