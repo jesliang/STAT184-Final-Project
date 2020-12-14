@@ -1,0 +1,236 @@
+---
+title: "Final Project"
+author: "Jessie Liang"
+date: "Due December 13, 2020"
+output: html_notebook
+---
+
+### Research Question
+Which Spotify playlist genres are the most popular based on Award Winning Billboard Top Artists?   
+
+   + Which genres are the most popular in the Spotify metadata?
+   + Which genres are the most popular based on Top Artists?
+   + Do Top Artists have a big influence on the genre popularity? 
+    
+Importance/Interest of topic: Music genres are a way to group songs and also a way to find music preferences of the audience. Artists and producer can use this information to create song tracks that appeal to a larger variety of listeners or to appeal to a specific type of listeners. In addition, the Spotify API is particularly interesting because it is able to access a huge amount of data from the Spotify catalog for free. Furthermore, Spotify users can even retrieve their personal music data from the web API by creating a developer account. This information can then be used for personal interest, like research.     
+
+### Preparing the Data
+
+```{r message=FALSE, warning=FALSE}
+#clean up environment
+rm(list = ls())
+
+# load necessary packages
+library(DataComputing)
+library(rvest)
+library(tidyr)
+
+# load primary data source from csv
+spotify <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-21/spotify_songs.csv')
+
+# second data source from wikipedia
+page <- "https://en.wikipedia.org/wiki/Billboard_Music_Awards"
+tableList <- page %>%
+  read_html() %>%
+  html_nodes(css = "table") %>%
+  html_table(fill = TRUE)
+```
+
+### Clean up data
+```{r message=FALSE, warning=FALSE}
+# finding right table element in wikipedia data source
+artist <- (tableList[[6]])
+
+# renaming variables
+artist <- artist %>%
+  rename(n = `#`,
+         year = Year,
+         tv = TV,
+         topArtist = `Top Artist[4]`,
+         topMale = `Top Male Artist`,
+         topFemale = `Top Female Artist`,
+         topNew = `Top New Artist`,
+         topGroup = `Top Duo/Group`,
+         hot100 = `Top Hot 100 Song`,
+         billboard200 = `Top Billboard 200 Album`,
+         multipleWins = `Multiple wins`,
+         host = `Host(s)`,
+         venue = Venue)
+
+# changing variables to correct type
+artist <- artist %>%
+  mutate(n = as.numeric(n)) %>%
+  mutate(year = as.numeric(year))
+```
+
+### Become acquainted with the data sources
+#### Source 1: Spotify metadata
+```{r}
+# inspecting data source 1
+head(spotify)
+# number of cases
+nrow(spotify)
+# number of variables
+ncol(spotify)
+```
+
+1. Who: The data is created and maintained by three people - Charlie Thompson, Josiah Parry, Donal Phipps, and Tom Wolff.
+2. What: The source consists of general metadata with songs from Spotify's API. The data frame has 32,833 observations and 23 variables. It includes information about song tracks, such as popularity, genre, danceability, etc. Each case represents a unique song track in the Spotify system. 
+3. Where: The data comes from Spotify's web API and can be found on tidytuesdayR from GitHub. 
+4. When: The dataset was created 3 years ago, but is frequently updated to keep track of recent songs.  
+5. Why: This metadata allows users to pull information about song tracks and conduct analysis on their topics of choice. Users may also get information about their own Spotify data from the API by setting up a Dev account on the Spotify website.
+6. Variables: Some variables I plan to use in this project are `track_name`, `track_artist`, `playlist_genre`, and `playlist_subgenre`.
+
+```{r}
+# select track_name, track_artist, playlist_genre, playlist_subgenre 
+spotify %>%
+  select(track_name, track_artist, playlist_genre, playlist_subgenre) %>%
+  head()
+```
+
+
+#### Source 2: Billboard Artist
+```{r}
+# inspecting data source 2
+head(artist)
+# number of cases
+nrow(artist)
+# number of variables
+ncol(artist)
+```
+
+1. Who: The data is created and maintained by Wikipedia contributors.
+2. What: The data consists of all artists that won a Billboard Music Award, such of Artist of the Year, Top Male Artist, or Top Female Artist. The table has 28 observations and 14 variables. Each case represents all the artists who won an award during that year, the place where the event took place, and the channel it was broadcasted on. 
+3. Where: The data comes from the Wikipedia page, "Billboard Music Awards". 
+4. When: The table contains data starting from the year 1990 to 2020 and is updated when new information about the Billboard Music Awards is available. It is unknown when the data was collected, but it is most likely within the past couple decades.
+5. Why: The data was collected to provide the public easy access to information about the Billboard Music Award winners since Wikipedia is a free encyclopedia. 
+6. Variables: Some variables that I plan to use in this project are `year`, `topArtist`, `topMale`, or `topFemale`.
+
+```{r}
+# select year, topArtist, topMale, topFemale
+artist %>%
+  select(year, topArtist, topMale, topFemale) %>%
+  head()
+```
+
+### Explore Research Question
+#### Table 1
+```{r message=FALSE}
+# join spotify and artist table
+artistChart <- artist %>%
+  inner_join(spotify, by = c("topArtist" = "track_artist")) %>%
+  select(year, topArtist, playlist_genre, playlist_subgenre, track_name)
+
+# find total number of songs in each genre for top artists 
+genre <- artistChart %>%
+  group_by(topArtist, playlist_genre) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = playlist_genre, values_from = count)
+
+genre
+```
+Discussion: From this table, it is evident that artists usually produce songs in a few different genres, with a focus in one or two main genres. Also, there are 15 artists that have won the Billboard Top Artist Award. The table contains 7 variables, the name of the artist and the six genre types. 
+
+<br>
+
+#### Table 2
+```{r}
+# using regrex to match artist from spotify data frame
+pattern <- "(50 Cent|Adele|Alanis Morissette|Backstreet Boys|Chris Brown|Destiny's Child|Drake|Ed Sheeran|Eminem|Justin Timberlake|Nelly|Post Malone|Taylor Swift|TLC|Usher)"   # stores the regrex in pattern
+
+genre_count <-    # stores the results under a new data frame
+  spotify %>%   # using the data from the spotify table
+  filter(grepl(pattern, track_artist)) %>%   # filter the track_artists that do not match the pattern
+  group_by(playlist_genre) %>%
+  tally(name = "n") %>%
+  arrange(desc(n))
+
+genre_count   # display the resulting data frame
+```
+Discussion: Based on top artists, the most popular Spotify playlist genre appears to be rap with 165 songs followed by r&b with 137 songs. The least popular play list genre based on top artists is rock with 3 songs.
+
+<br>
+
+#### Figure 1
+```{r message=FALSE}
+# plot the annual genre popularity based on top artists
+artistChart %>%
+  group_by(year, playlist_genre) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = year, y = count)) + 
+  geom_point(aes(shape = playlist_genre)) + 
+  ggtitle("Genre Popularity By Year Based on Award Winning Artist")
+```
+Discussion: In the plot, rap and r&b seem to be the most popular annual song genres based on top artists. This information matches the information from Table 2 where rap was found to be the most popular song genre and r&b the second most popular. One notable thing about the graph is that the years 2007-2010 do not have any data points. This is because the Billboard Music Awards was not held in those 4 years. 
+
+<br>
+
+#### Figure 2
+```{r message=FALSE}
+artistChart %>%
+  group_by(topArtist, playlist_genre) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = topArtist, y = count, group = playlist_genre)) + 
+  geom_line(aes(linetype = playlist_genre, color = playlist_genre)) +
+  geom_point(aes(color = playlist_genre)) + 
+  ggtitle("Genre Popularity Based on Award Winning Artist") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+```
+Discussion: The line plot shows the genre popularity of spotify songs based on Award Winning Billboard Top Artists. Based on the plot, there is a large amount of songs under the rap category with the top three contributors to rap songs being 50 Cent, Drake, and Eminem. The second most popular genre appears to be r&b, with Drake as the biggest contributor. The other four genres are relatively the same. One notable thing from the graph is that Drake seems to be a very well-rounded artist with many songs in a variety of genres. 
+
+<br>
+
+#### Figure 3
+```{r message=FALSE}
+artistChart %>%
+  group_by(topArtist, playlist_genre) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = topArtist, y = count, group = playlist_genre)) + 
+  geom_point(aes(color = playlist_genre, shape = playlist_genre)) + 
+  ggtitle("Genre Popularity Based on Award Winning Artist") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+```
+Discussion: This plot is a simpler version of Figure 2 without the lines. From this graph, it is easier to see which song genres each artist worked with. 50 Cent is a huge contributor to rap songs as there are over 100 rap songs under his name. In addition, almost all artists have songs in the latin, pop, or r&b genre. Although neither of these three song genres are considered to be the most popular, they can still be considered as the most frequently used song genres. 
+
+<br>
+
+#### Figure 4
+```{r message=FALSE}
+# overlay barplot of the most popular genres in spotify API compared to genre popularity based on award winning artists
+
+spotify %>%
+  filter(track_popularity < 20) %>%
+  group_by(playlist_genre) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(x = playlist_genre, y = n)) + 
+  geom_bar(stat = "identity", fill = "lightblue") +
+  geom_bar(data = genre_count, aes(x = playlist_genre, y = n), stat = "identity", fill = "steelblue") + 
+  labs(title = "Genre Popularity Comparison Between Both Data Sets", x = "genre", y = "number of songs")
+```
+Discussion: The light blue represents genre popularity from the Spotify metadata and the dark blue represents genre popularity from the Billboard data. From this graph, it is evident that the most popular genre for the Spotify metadata is edm followed by r&b. While the most popular genre based on Billboard Top Artist is rap followed by r&b. Looking at the plot, the two data sets seem to differ a large amount. Therefore, an assumption can be made that Billboard Top Artists do not have a significant impact on the genre popularity of Spotify songs. This may be due to the fact that the Spotify API includes data from all over the world; thus, people will have varying music taste. In addition, the Billboard Music Awards are mainly focused on American artists and contain a relatively small data set of artists as the Top Artist Award is selective and unique.
+
+<br>
+
+### Conclusion
+
+Challenges: The most challenging aspect of this project was finding relevant data sources for my topic and making sure that I could relate the two somehow. I had a relatively easy time finding the first data source, from the Spotify API, however, it was hard to find a second data source that related to my research question. I knew that I wanted to use a join function on song genres or track artists so I focused on looking for data sets on those two topics. At first, I looked for data sets on song genres, but could not find anything that related to the first data set. So next I decided to focus on looking for data tables on artists and stumbled upon the BillBoard Charts. I tried to import the data tables directly from the Billboard website via html; however, each artist or case was labeled under its own table so this was not an efficient way to import the data; I had no choice but to look somewhere else. In the end, I found a table from Wikipedia on all Billboard Music Award winners and decided to research about song genre popularity in relation to award winning artists.
+
+<br>
+Recap:
+
+  + Which genres are the most popular in the Spotify metadata? 
+    * The most popular song genres in the Spotify metadata is edm, followed by r&b and rock.
+  + Which genres are the most popular based on Top Artists?
+    * The most popular song genres based on Top Artists is rap, followed by r&b and pop.
+  + Do Top Artists have a big influence on the genre popularity? 
+    * Maybe, but based on Figure 4, they do not have a big influence because the song genre popularity based on top artist differ from the Spotify metadata song genre popularity.
+  
+<br>
+Which Spotify playlist genres are the most popular based on Award Winning Billboard Top Artists?
+
+  + Rap with 165 songs
+  + R&B with 137 songs
+  + Pop with 90 songs
+  + Latin with 65 songs
+  + Edm with 37 songs
+  + Rock with 3 songs
