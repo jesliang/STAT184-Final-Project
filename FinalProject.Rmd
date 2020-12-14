@@ -12,7 +12,7 @@ Which Spotify playlist genres are the most popular based on Award Winning Billbo
    + Which genres are the most popular based on Top Artists?
    + Do Top Artists have a big influence on the genre popularity? 
     
-Importance/Interest of topic: Music genres are a way to group songs and also a way to find music preferences of the audience. Artists and producer can use this information to create song tracks that appeal to a larger variety of listeners or to appeal to a specific type of listeners. In addition, the Spotify API is particularly interesting because it is able to access a huge amount of data from the Spotify catalog for free. Furthermore, Spotify users can even retrieve their personal music data from the web API by creating a developer account. This information can then be used for personal interest, like research.     
+Importance/Interest of topic: Music genres are a way to group songs and also a way to find music preferences of the audience. Artists and producers can use this information to create song tracks that appeal to a larger variety of listeners or to appeal to a specific type of listeners. In addition, the Spotify API is particularly interesting because it is able to access a huge amount of data from the Spotify catalog for free. Furthermore, Spotify users can even retrieve their personal music data from the web API by creating a developer account. This information can then be used for personal interest, like research.     
 
 ### Preparing the Data
 
@@ -36,7 +36,7 @@ tableList <- page %>%
   html_table(fill = TRUE)
 ```
 
-### Clean up data
+### Cleaning up data
 ```{r message=FALSE, warning=FALSE}
 # finding right table element in wikipedia data source
 artist <- (tableList[[6]])
@@ -113,7 +113,7 @@ artist %>%
   head()
 ```
 
-### Explore Research Question
+### Exploring Research Question
 #### Table 1
 ```{r message=FALSE}
 # join spotify and artist table
